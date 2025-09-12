@@ -13,7 +13,7 @@ OPENAI_KEY: Final = os.getenv("OPENAI_API_KEY_BOT2")
 BOT_USERNAME: Final = "gold_fitness_bot"
 
 # --- OpenAI Client ---
-client = OpenAI(api_key=OPENAI_KEY)
+client = OpenAI(api_key=os.getenv("OPENAI_KEY"))
 
 
 # --- FAQ dictionary (Gym) ---
