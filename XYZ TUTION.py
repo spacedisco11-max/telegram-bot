@@ -8,12 +8,13 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # --- Load secrets from .env ---
 load_dotenv()
-TOKEN: Final = os.getenv("TELEGRAM_TOKEN_BOT1")
-OPENAI_KEY: Final = os.getenv("OPENAI_API_KEY_BOT1")
+TOKEN: Final = os.getenv("TELEGRAM_TOKEN")
+OPENAI_KEY: Final = os.getenv("OPENAI_API_KEY")
 BOT_USERNAME: Final = "ram_sir_tution_bot"
 
 # --- OpenAI Client ---
-client = OpenAI(api_key=os.getenv("OPENAI_KEY"))
+client = OpenAI(api_key=OPENAI_KEY)
+
 
 # --- FAQ dictionary ---
 FAQS = {

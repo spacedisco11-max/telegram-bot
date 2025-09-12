@@ -6,14 +6,18 @@ from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- Load secrets from .env ---
-load_dotenv()
-TOKEN: Final = os.getenv("TELEGRAM_TOKEN_BOT2")
-OPENAI_KEY: Final = os.getenv("OPENAI_API_KEY_BOT2")
+# --- Load secrets from .env locally ---
+load_dotenv()  # Only needed for local testing
+
+# --- Environment variables ---
+TOKEN: Final = os.getenv("TELEGRAM_TOKEN")       # Use exactly this name on Render
+OPENAI_KEY: Final = os.getenv("OPENAI_API_KEY")  # Use exactly this name on Render
 BOT_USERNAME: Final = "gold_fitness_bot"
 
-# --- OpenAI Client ---
-client = OpenAI(api_key=os.getenv("OPENAI_KEY"))
+# --- OpenAI client ---
+client = OpenAI(api_key=OPENAI_KEY)
+
+
 
 
 # --- FAQ dictionary (Gym) ---
