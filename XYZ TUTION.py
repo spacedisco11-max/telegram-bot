@@ -48,7 +48,7 @@ FAQS = {
 
 # --- Commands ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Hello! I am the official bot for Ram sir Tution center! Type /faq for common questions.")
+    await update.message.reply_text("👋 Hello! I am the official bot for Ram sir Tuition Center! Type /faq for common questions.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("ℹ️ Type /faq to see frequently asked questions.")
@@ -56,10 +56,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faqs = (
         "📌 *Frequently Asked Questions*\n\n"
-        "Q: What subjects do you teach?\nA: " + FAQS["subjects"] + "\n\n"
-        "Q: What are the class timings?\nA: " + FAQS["class timings"] + "\n\n"
-        "Q: How much is the monthly fee?\nA: " + FAQS["monthly fee"] + "\n\n"
-        "Q: Do you offer online classes?\nA: " + FAQS["online classes"]
+        f"Q: What subjects do you teach?\nA: {FAQS['subjects']}\n\n"
+        f"Q: What are the class timings?\nA: {FAQS['class timings']}\n\n"
+        f"Q: How much is the monthly fee?\nA: {FAQS['monthly fee']}\n\n"
+        f"Q: Do you offer online classes?\nA: {FAQS['online classes']}"
     )
     await update.message.reply_text(faqs, parse_mode="Markdown")
 
@@ -112,7 +112,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(response)
 
 # --- Error handler ---
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     print(f"Update {update} caused error {context.error}")
 
 # --- Main ---
@@ -122,10 +122,11 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("faq", faq_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_error_handler(error)
+    app.add_error_handler(error_handler)
 
     print("Bot starting...")
-    app.run_polling(poll_interval=3)
+    app.run_polling()
+
 
 
 

@@ -1,4 +1,3 @@
-# main.py  (replace your old file contents with this)
 from dotenv import load_dotenv
 import os
 import sys
@@ -12,7 +11,6 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 load_dotenv()
 
 # ---- Resolve environment variables (priority order) ----
-# Prefer generic names (what Render expects). If missing, fall back to BOT1/BOT2 local names.
 def get_env_prefer(render_name: str, alt_names: list[str]) -> str | None:
     value = os.getenv(render_name)
     if value:
@@ -62,13 +60,13 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faqs = (
         "Frequently Asked Questions\n\n"
         "Q: What are your opening hours?\n"
-        "A: " + FAQS["opening hours"] + "\n\n"
+        f"A: {FAQS['opening hours']}\n\n"
         "Q: What's the monthly membership fee?\n"
-        "A: " + FAQS["membership fee"] + "\n\n"
+        f"A: {FAQS['membership fee']}\n\n"
         "Q: Do you offer personal training?\n"
-        "A: " + FAQS["personal training"] + "\n\n"
+        f"A: {FAQS['personal training']}\n\n"
         "Q: What facilities are available?\n"
-        "A: " + FAQS["facilities"]
+        f"A: {FAQS['facilities']}"
     )
     await update.message.reply_text(faqs)
 
@@ -82,7 +80,6 @@ def chat_with_gpt(prompt: str) -> str:
                 {"role": "user", "content": prompt}
             ]
         )
-        # older SDK returns response.choices[0].message.content
         return response.choices[0].message.content.strip()
     except Exception as e:
         print("OpenAI Error:", e)
@@ -94,7 +91,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").lower()
     print(f"User({update.message.chat.id}) in {message_type}: '{text}'")
 
-    # show typing
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
     # FAQ direct match
@@ -103,10 +99,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(answer)
             return
 
-    # placeholder
     placeholder = await update.message.reply_text("Thinking...")
 
-    # group mention handling
+    # Group mention handling
     if message_type == "group":
         if BOT_USERNAME in text:
             new_text = text.replace(BOT_USERNAME, "").strip()
@@ -124,7 +119,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await update.message.reply_text(response)
 
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     print(f"Update {update} caused error {context.error}")
 
 # --- Main ---
@@ -135,10 +130,11 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("faq", faq_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_error_handler(error)
+    app.add_error_handler(error_handler)
 
     print("Bot starting...")
-    app.run_polling(poll_interval=3)
+    app.run_polling()
+
 
 
 
