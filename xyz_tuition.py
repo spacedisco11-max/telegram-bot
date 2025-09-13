@@ -1,4 +1,3 @@
-# tuition_bot.py
 from dotenv import load_dotenv
 import os
 import sys
@@ -8,25 +7,15 @@ from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- Compatibility patch for Python 3.13 + python-telegram-bot 20.7 ---
-try:
-    from telegram.ext import Updater as _UpdaterClass
-    if not hasattr(_UpdaterClass, "_Updater__polling_cleanup_cb"):
-        setattr(_UpdaterClass, "_Updater__polling_cleanup_cb", None)
-except Exception:
-    pass
-# -------------------------------------------------------------------
-
-
-# --- Load local .env for local testing ---
+# --- Load local .env ---
 load_dotenv()
 
 # --- Resolve environment variables ---
-def get_env_prefer(render_name: str, alt_names: list[str]) -> str | None:
-    value = os.getenv(render_name)
+def get_env_prefer(primary: str, alternates: list[str]) -> str | None:
+    value = os.getenv(primary)
     if value:
         return value
-    for alt in alt_names:
+    for alt in alternates:
         val = os.getenv(alt)
         if val:
             return val
@@ -36,11 +25,11 @@ TOKEN = get_env_prefer("TELEGRAM_TOKEN", ["TELEGRAM_TOKEN_BOT2", "TELEGRAM_TOKEN
 OPENAI_KEY = get_env_prefer("OPENAI_API_KEY", ["OPENAI_API_KEY_BOT2", "OPENAI_API_KEY_BOT1"])
 
 if not TOKEN:
-    print("ERROR: Telegram token not set. Add TELEGRAM_TOKEN (or TELEGRAM_TOKEN_BOT2) to env.")
+    print("ERROR: Telegram token not set.")
     sys.exit(1)
 
 if not OPENAI_KEY:
-    print("ERROR: OpenAI key not set. Add OPENAI_API_KEY (or OPENAI_API_KEY_BOT2) to env.")
+    print("ERROR: OpenAI key not set.")
     sys.exit(1)
 
 BOT_USERNAME: Final = "ram_sir_tution_bot"
@@ -58,20 +47,14 @@ FAQS = {
 
 # --- Commands ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Hello! I am the official bot for Ram sir Tuition Center! Type /faq for common questions.")
+    await update.message.reply_text("👋 Hello! I am Ram Sir Tuition Bot. Type /faq for common questions.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("ℹ️ Type /faq to see frequently asked questions.")
 
 async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    faqs = (
-        "📌 *Frequently Asked Questions*\n\n"
-        f"Q: What subjects do you teach?\nA: {FAQS['subjects']}\n\n"
-        f"Q: What are the class timings?\nA: {FAQS['class timings']}\n\n"
-        f"Q: How much is the monthly fee?\nA: {FAQS['monthly fee']}\n\n"
-        f"Q: Do you offer online classes?\nA: {FAQS['online classes']}"
-    )
-    await update.message.reply_text(faqs, parse_mode="Markdown")
+    faqs = "\n\n".join([f"Q: {k.title()}?\nA: {v}" for k, v in FAQS.items()])
+    await update.message.reply_text(f"📌 Frequently Asked Questions\n\n{faqs}")
 
 # --- GPT fallback ---
 def chat_with_gpt(prompt: str) -> str:
@@ -79,7 +62,7 @@ def chat_with_gpt(prompt: str) -> str:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant for a tuition center. Prefer FAQ knowledge first."},
+                {"role": "system", "content": "You are a helpful assistant for a tuition center."},
                 {"role": "user", "content": prompt}
             ]
         )
@@ -90,11 +73,9 @@ def chat_with_gpt(prompt: str) -> str:
 
 # --- Message handling ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message_type = update.message.chat.type
     text = (update.message.text or "").lower()
-    print(f"User({update.message.chat.id}) in {message_type}: '{text}'")
-
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+    chat_type = update.message.chat.type
+    print(f"User({update.message.chat.id}) in {chat_type}: '{text}'")
 
     # FAQ direct match
     for keyword, answer in FAQS.items():
@@ -102,18 +83,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(answer)
             return
 
+    # Show "thinking" placeholder
     placeholder = await update.message.reply_text("⚡ Thinking...")
 
-    if message_type == "group":
-        if BOT_USERNAME in text:
-            new_text = text.replace(BOT_USERNAME, "").strip()
-            response = chat_with_gpt(new_text)
-        else:
-            return
-    else:
-        response = chat_with_gpt(text)
+    if chat_type == "group" and BOT_USERNAME in text:
+        text = text.replace(BOT_USERNAME, "").strip()
 
-    if not response or response.strip() == "":
+    response = chat_with_gpt(text)
+
+    if not response.strip():
         response = "📞 For more information, contact +91-XXXXXXXXXX."
 
     try:
@@ -128,6 +106,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 # --- Main ---
 if __name__ == "__main__":
     app = Application.builder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("faq", faq_command))
@@ -136,7 +115,3 @@ if __name__ == "__main__":
 
     print("Bot starting...")
     app.run_polling()
-
-
-
-
