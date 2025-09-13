@@ -6,6 +6,15 @@ from openai import OpenAI
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+# --- Compatibility patch for Python 3.13 + python-telegram-bot 20.7 ---
+try:
+    from telegram.ext import Updater as _UpdaterClass
+    if not hasattr(_UpdaterClass, "_Updater__polling_cleanup_cb"):
+        setattr(_UpdaterClass, "_Updater__polling_cleanup_cb", None)
+except Exception:
+    pass
+# -------------------------------------------------------------------
+
 
 # Load local .env for local testing only
 load_dotenv()
