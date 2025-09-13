@@ -1,147 +1,145 @@
+# main.py  (replace your old file contents with this)
 from dotenv import load_dotenv
 import os
+import sys
 from typing import Final
 from openai import OpenAI
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- Load secrets from .env locally ---
-load_dotenv()  # Only needed for local testing
+# Load local .env for local testing only
+load_dotenv()
 
-# --- Environment variables ---
-TOKEN: Final = os.getenv("TELEGRAM_TOKEN")       # Use exactly this name on Render
-OPENAI_KEY: Final = os.getenv("OPENAI_API_KEY")  # Use exactly this name on Render
+# ---- Resolve environment variables (priority order) ----
+# Prefer generic names (what Render expects). If missing, fall back to BOT1/BOT2 local names.
+def get_env_prefer(render_name: str, alt_names: list[str]) -> str | None:
+    value = os.getenv(render_name)
+    if value:
+        return value
+    for alt in alt_names:
+        val = os.getenv(alt)
+        if val:
+            return val
+    return None
+
+TOKEN = get_env_prefer("TELEGRAM_TOKEN", ["TELEGRAM_TOKEN_BOT2", "TELEGRAM_TOKEN_BOT1"])
+OPENAI_KEY = get_env_prefer("OPENAI_API_KEY", ["OPENAI_API_KEY_BOT2", "OPENAI_API_KEY_BOT1"])
+
+if not TOKEN:
+    print("ERROR: Telegram token not set. Add TELEGRAM_TOKEN (or TELEGRAM_TOKEN_BOT2) to env.")
+    sys.exit(1)
+
+if not OPENAI_KEY:
+    print("ERROR: OpenAI key not set. Add OPENAI_API_KEY (or OPENAI_API_KEY_BOT2) to env.")
+    sys.exit(1)
+
+# Bot username for group mentions
 BOT_USERNAME: Final = "gold_fitness_bot"
 
-# --- OpenAI client ---
+# Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_KEY)
-
-
-
 
 # --- FAQ dictionary (Gym) ---
 FAQS = {
-    "opening hours": "⏰ We're open Monday–Saturday 6:00 AM – 10:00 PM, and Sundays 7:00 AM – 5:00 PM.",
-    "membership fee": "💰 Standard membership is ₹1,499/month. We also offer 3-month and yearly plans with discounts (ask for details).",
-    "personal training": "🏋️ Yes — certified personal trainers available. Personal training packages start at ₹4,999/month.",
-    "facilities": "🏟️ We have a fully equipped cardio & weight area, functional training zone, yoga studio, and steam/sauna.",
-    "trial": "🎯 We offer a 1-day free trial session. Book a trial by messaging us your preferred day and time.",
-    "classes": "📚 Group classes include HIIT, Yoga, Strength Training, and Functional Fitness. Check schedule for class times.",
-    "trainers": "👨‍🏫 Our trainers are certified professionals with experience in strength, conditioning, and weight loss coaching.",
-    "payment": "💳 We accept UPI, Google Pay, PhonePe, and cash. Monthly auto-renewal can be enabled on request.",
-    "lockers": "🔐 Lockers and towel service are available. Monthly locker rental is optional and affordable.",
-    "cancel membership": "❗ Memberships can be cancelled with 30 days' notice. Refunds follow our cancellation policy—we'll guide you through it.",
-    "diet support": "🥗 We provide basic diet guidance and meal-plan templates. For personalized nutrition plans, ask about our coaching packages.",
-    "contact": "📞 For more info or bookings, call/WhatsApp: +91-XXXXXXXXXX or email: info@gymcenter.com"
+    "opening hours": "We're open Monday–Saturday 6:00 AM – 10:00 PM, and Sundays 7:00 AM – 5:00 PM.",
+    "membership fee": "Standard membership is ₹1,499/month. We also offer 3-month and yearly plans with discounts.",
+    "personal training": "Yes — certified personal trainers available. Personal training packages start at ₹4,999/month.",
+    "facilities": "We have a fully equipped cardio & weight area, functional training zone, yoga studio, and steam/sauna.",
+    "trial": "We offer a 1-day free trial session. Send your preferred day and time to book.",
+    "classes": "Group classes include HIIT, Yoga, Strength Training, and Functional Fitness.",
+    "contact": "For bookings, call/WhatsApp: +91-XXXXXXXXXX or email: info@gymcenter.com"
 }
-
-
 
 # --- Commands ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Hello! Thanks for chatting with me. I am the official bot for GOLD's GYM")
+    await update.message.reply_text("Hello! I am the official bot for GOLD's GYM. Type /faq for common questions.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("ℹ️ I am here to answer your questions about GOLD's GYM. Type /faq to see common questions.")
+    await update.message.reply_text("Type /faq to see frequently asked questions.")
 
-async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✨ This is a custom command!")
-
-# --- FAQ Command ---
 async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faqs = (
-        "📌 *Frequently Asked Questions*\n\n"
+        "Frequently Asked Questions\n\n"
         "Q: What are your opening hours?\n"
-        "A: We're open Monday to Saturday , 6AM-10PM, and Sundays from 7AM-5PM.\n\n"
+        "A: " + FAQS["opening hours"] + "\n\n"
         "Q: What's the monthly membership fee?\n"
-        "A: Our standard membership is ₹1,499/month. We also offer quarterly and yearly packages at discounted rates!\n\n"
+        "A: " + FAQS["membership fee"] + "\n\n"
         "Q: Do you offer personal training?\n"
-        "A: Yes, We have certified trainers available for one-on-one sessions. Personal training packages start from ₹4,999/month!.\n\n"
-        "Q: What are the facilities available?\n"
-        "A: We provide a fully equipped Cardio and weights section, yoga studio, functional training area, and a steam/sauna facility."
+        "A: " + FAQS["personal training"] + "\n\n"
+        "Q: What facilities are available?\n"
+        "A: " + FAQS["facilities"]
     )
-    await update.message.reply_text(faqs, parse_mode="Markdown")
+    await update.message.reply_text(faqs)
 
-# --- GPT response ---
+# --- OpenAI wrapper ---
 def chat_with_gpt(prompt: str) -> str:
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant and bot for GOLD's GYM. Always prefer FAQ knowledge first, and if unsure, politely redirect users to contact details."},
+                {"role": "system", "content": "You are a helpful assistant for a gym. Prefer FAQ answers when possible."},
                 {"role": "user", "content": prompt}
             ]
         )
+        # older SDK returns response.choices[0].message.content
         return response.choices[0].message.content.strip()
     except Exception as e:
         print("OpenAI Error:", e)
-        return "⚠️ Oops! My brain is tired, try again later 😅"
+        return "Sorry, I can't answer right now. Please contact +91-XXXXXXXXXX."
 
-# --- Handle all messages ---
+# --- Message handling ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message_type: str = update.message.chat.type
-    text: str = update.message.text.lower()
-    print(f"User({update.message.chat.id}) in {message_type}: '{text}' ")
+    message_type = update.message.chat.type
+    text = (update.message.text or "").lower()
+    print(f"User({update.message.chat.id}) in {message_type}: '{text}'")
 
-    # Send typing action to avoid timeout
+    # show typing
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
-    # --- FAQ matching ---
+    # FAQ direct match
     for keyword, answer in FAQS.items():
         if keyword in text:
             await update.message.reply_text(answer)
             return
 
-    # Quick placeholder reply
-    placeholder = await update.message.reply_text("⚡ Thinking...")
+    # placeholder
+    placeholder = await update.message.reply_text("Thinking...")
 
-    # --- GPT fallback ---
+    # group mention handling
     if message_type == "group":
         if BOT_USERNAME in text:
-            new_text: str = text.replace(BOT_USERNAME, "").strip()
-            response: str = chat_with_gpt(new_text)
+            new_text = text.replace(BOT_USERNAME, "").strip()
+            response = chat_with_gpt(new_text)
         else:
             return
     else:
-        response: str = chat_with_gpt(text)
+        response = chat_with_gpt(text)
 
-    # --- Final fallback if GPT is too vague ---
     if not response or response.strip() == "":
-        response = "📞 For more information, please contact us directly at +91-XXXXXXXXXX."
+        response = "For more info, contact +91-XXXXXXXXXX."
 
-    print("Bot:", response)
-
-    # Edit the placeholder message with GPT's response
     try:
         await placeholder.edit_text(response)
     except Exception:
-        # if edit fails, just send a new message
         await update.message.reply_text(response)
 
-# --- Error handler ---
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Update {update} caused error {context.error}")
 
 # --- Main ---
 if __name__ == "__main__":
-    print("Starting bot...")
     app = Application.builder().token(TOKEN).build()
 
-    # Commands
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("custom", custom_command))
     app.add_handler(CommandHandler("faq", faq_command))
-
-    # Messages
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
-
-    # Errors
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_error_handler(error)
 
-    print("Polling...")
+    print("Bot starting...")
     app.run_polling(poll_interval=3)
+
 
 
 
